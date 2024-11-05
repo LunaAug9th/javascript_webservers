@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>README - Node.js Web Server with Configuration Management</title>
+</head>
+<body>
+    <h1>Node.js Web Server with Configuration Management</h1>
+    
+    <p>This project is a Node.js-based HTTP server that manages configurations using an <code>.ini</code> file and implements base64 URL authentication.</p>
+    
+    <h2>Features</h2>
+    <ul>
+        <li><strong>Configuration Management</strong>: Configurations are stored and loaded from a <code>.ini</code> file.</li>
+        <li><strong>Authorization</strong>: Base32-encoded authorization key in <code>config.ini</code> is validated against a URL-provided base64 key.</li>
+        <li><strong>CRUD Operations</strong>: Supports read, write, add, and delete operations on structured data, with JSON data storage.</li>
+    </ul>
+    
+    <h2>Setup and Installation</h2>
+    <ol>
+        <li><strong>Clone the repository</strong>:
+            <pre><code>git clone https://github.com/lunaflies/YOUR_REPOSITORY.git
+cd YOUR_REPOSITORY
+            </code></pre>
+        </li>
+        
+        <li><strong>Install Dependencies</strong>:
+            <pre><code>npm install</code></pre>
+        </li>
+        
+        <li><strong>Set Up Configurations</strong>:
+            <p>Create a <code>config.ini</code> file in the root directory with the following structure:</p>
+            <pre><code>[Server]
+HOSTING_PORT = 80
+SERVER_ROOT_FOLDER = /home/henryserver/hosting
+
+[Authorization]
+AUTHORIZED_KEY = YOUR_BASE32_ENCODED_KEY
+
+[Settings]
+JSON_AUTO_SAVE_ENABLED = true
+AUTO_SAVE_INTERVAL = 240
+            </code></pre>
+        </li>
+        
+        <li><strong>Run the Server</strong>:
+            <pre><code>node /home/henryserver/hosting/webserver.mjs</code></pre>
+        </li>
+    </ol>
+    
+    <h2>Usage</h2>
+    <ul>
+        <li><strong>Authorization</strong>:
+            <p>Encode the <code>AUTHORIZED_KEY</code> in base64 and include it in requests as a <code>key</code> query parameter.</p>
+        </li>
+        
+        <li><strong>Endpoints</strong>:
+            <ul>
+                <li><code>write.listName.itemName.value</code></li>
+                <li><code>read.listName.itemName</code></li>
+                <li><code>add.listName.itemName.value</code></li>
+                <li><code>delete.listName.itemName</code></li>
+            </ul>
+        </li>
+    </ul>
+    
+    <h2>Troubleshooting</h2>
+    <ul>
+        <li>Ensure that the correct path is set in the <code>config.ini</code> file.</li>
+        <li>Verify base64 and base32 key encoding requirements.</li>
+    </ul>
+    
+    <h2>License</h2>
+    <p>This project is licensed under the MIT License.</p>
+</body>
+</html>

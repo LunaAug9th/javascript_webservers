@@ -1,0 +1,7 @@
+{
+    "dependencies": {
+      "ini": "^5.0.0",
+      "thirty-two": "^1.0.2"
+    }
+  }
+  
