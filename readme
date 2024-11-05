@@ -1,3 +1,11 @@
-this is my webserver scripts
 Most Script is Made by ChatGPT
-Most Script ES Module
+node version: 17.9.0
+
+This is how this repository file structure works, so just copy and paste the code you need:
+repo/
+├── README.md
+└── simplejsonDB/
+    └── single.ver/
+        ├── webserver.mjs
+        ├── config.ini
+        └── README.md
