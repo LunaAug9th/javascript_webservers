@@ -13,30 +13,33 @@ function loadConfig() {
         config = ini.parse(configContent);
 
         // Decode AUTHORIZED_KEY using Base32
-        if (config.Authorization && config.Authorization.AUTHORIZED_KEY) {
-            config.Authorization.AUTHORIZED_KEY = thirtyTwo.decode(config.Authorization.AUTHORIZED_KEY).toString('utf-8');
-            console.log('Configuration loaded:', config);
-        } else {
-            console.log('AUTHORIZED_KEY is missing in config file');
+        try {
+            if (config.Authorization && config.Authorization.AUTHORIZED_KEY) {
+                config.Authorization.AUTHORIZED_KEY = thirtyTwo.decode(config.Authorization.AUTHORIZED_KEY).toString('utf-8');
+                console.log('Configuration loaded:', config);
+            } else {
+                console.error('AUTHORIZED_KEY is missing in config file');
+            }
+        } catch (error) {
+            console.error('Failed to decode AUTHORIZED_KEY:', error.message);
         }
     } catch (error) {
-        console.log('Failed to load config file:', error);
+        console.error('Failed to load config file:', error.message);
     }
 }
 
 loadConfig();
 
 const dataFilePath = '/home/henryserver/hosting/data.json'; // Fixed path for JSON file
-const PORT = config.Server.HOSTING_PORT || 80;
-const AUTHORIZED_KEY = config.Authorization.AUTHORIZED_KEY;
+const PORT = config?.Server?.HOSTING_PORT || 80;
+const AUTHORIZED_KEY = config?.Authorization?.AUTHORIZED_KEY || '';
 
 // Base64 decode function (URL decoding included)
 function decodeBase64(encodedKey) {
     try {
-        const decodedKey = Buffer.from(decodeURIComponent(encodedKey), 'base64').toString('utf-8');
-        return decodedKey;
+        return Buffer.from(decodeURIComponent(encodedKey), 'base64').toString('utf-8');
     } catch (error) {
-        console.log('Failed to decode Base64 key:', error);
+        console.error('Failed to decode Base64 key:', error.message);
         return null;
     }
 }
@@ -47,7 +50,7 @@ function readDataFile(res) {
         const data = fs.readFileSync(dataFilePath, 'utf8');
         return JSON.parse(data);
     } catch (error) {
-        console.log('Failed to read JSON data:', error);
+        console.error('Failed to read JSON data:', error.message);
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(`Error reading data file: ${error.message}`);
         return null;
@@ -60,7 +63,7 @@ function writeDataFile(data, res) {
         fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2), 'utf8');
         console.log('Data successfully written to file');
     } catch (error) {
-        console.log('Failed to write JSON data:', error);
+        console.error('Failed to write JSON data:', error.message);
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(`Error writing data file: ${error.message}`);
     }
@@ -68,82 +71,113 @@ function writeDataFile(data, res) {
 
 // Function to format response content
 function sendResponse(res, content, isHtml = false) {
-    res.writeHead(200, { 'Content-Type': isHtml ? 'text/html' : 'text/plain' });
-    res.end(isHtml ? `<html><body><p>${content}</p></body></html>` : content);
+    try {
+        res.writeHead(200, { 'Content-Type': isHtml ? 'text/html' : 'text/plain' });
+        res.end(isHtml ? `<html><body><p>${content}</p></body></html>` : content);
+    } catch (error) {
+        console.error('Failed to send response:', error.message);
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(`Error sending response: ${error.message}`);
+    }
 }
 
 // Create HTTP server
 const server = http.createServer((req, res) => {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const key = url.searchParams.get('key');
-    const isHtml = url.searchParams.get('html') === '1';
+    try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const key = url.searchParams.get('key');
+        const isHtml = url.searchParams.get('html') === '1';
 
-    // Verify if the URL key decoded in Base64 matches AUTHORIZED_KEY
-    if (!key || decodeBase64(key) !== AUTHORIZED_KEY) {
-        console.log('Unauthorized access attempt');
-        sendResponse(res, 'Unauthorized: Invalid key', isHtml);
-        return;
-    }
+        // Verify if the URL key decoded in Base64 matches AUTHORIZED_KEY
+        if (!key || decodeBase64(key) !== AUTHORIZED_KEY) {
+            console.log('Unauthorized access attempt');
+            sendResponse(res, 'Unauthorized: Invalid key', isHtml);
+            return;
+        }
 
-    const command = url.pathname.replace(/^\/+/, '');
-    const [action, listName, itemName, value] = command.split('.');
+        const command = url.pathname.replace(/^\/+/, '');
+        const [action, listName, itemName, value] = command.split('.');
 
-    let data = readDataFile(res);
-    if (data === null) return;
+        let data = readDataFile(res);
+        if (data === null) return;
 
-    switch (action) {
-        case 'write':
-            if (listName && itemName) {
-                if (!data[listName]) data[listName] = {};
-                data[listName][itemName] = value;
-            } else {
-                data[listName] = value;
-            }
-            writeDataFile(data, res);
-            sendResponse(res, `Data written to ${listName}.${itemName}: ${value}`, isHtml);
-            break;
-
-        case 'read':
-            if (data[listName]) {
-                if (itemName && data[listName][itemName]) {
-                    sendResponse(res, data[listName][itemName], isHtml);
-                } else if (!itemName) {
-                    sendResponse(res, JSON.stringify(data[listName]), isHtml);
-                } else {
-                    sendResponse(res, 'Item not found', isHtml);
+        switch (action) {
+            case 'write':
+                try {
+                    if (listName && itemName) {
+                        if (!data[listName]) data[listName] = {};
+                        data[listName][itemName] = value;
+                    } else if (listName) {
+                        data[listName] = value;
+                    }
+                    writeDataFile(data, res);
+                    sendResponse(res, `Data written to ${listName}.${itemName || ''}: ${value}`, isHtml);
+                } catch (error) {
+                    console.error('Error in write operation:', error.message);
+                    sendResponse(res, 'Error in write operation', isHtml);
                 }
-            } else {
-                sendResponse(res, 'List not found', isHtml);
-            }
-            break;
+                break;
 
-        case 'add':
-            if (!data[listName]) data[listName] = {};
-            data[listName][itemName] = value;
-            writeDataFile(data, res);
-            sendResponse(res, `Data added to ${listName}.${itemName}: ${value}`, isHtml);
-            break;
-
-        case 'delete':
-            if (data[listName]) {
-                if (itemName && data[listName][itemName]) {
-                    delete data[listName][itemName];
-                } else if (!itemName) {
-                    delete data[listName];
-                } else {
-                    sendResponse(res, 'Item not found', isHtml);
-                    return;
+            case 'read':
+                try {
+                    if (data[listName]) {
+                        if (itemName && data[listName][itemName] !== undefined) {
+                            sendResponse(res, data[listName][itemName], isHtml);
+                        } else if (!itemName) {
+                            sendResponse(res, JSON.stringify(data[listName]), isHtml);
+                        } else {
+                            sendResponse(res, 'Item not found', isHtml);
+                        }
+                    } else {
+                        sendResponse(res, 'List not found', isHtml);
+                    }
+                } catch (error) {
+                    console.error('Error in read operation:', error.message);
+                    sendResponse(res, 'Error in read operation', isHtml);
                 }
-                writeDataFile(data, res);
-                sendResponse(res, `Data deleted from ${listName}.${itemName || 'entire list'}`, isHtml);
-            } else {
-                sendResponse(res, 'List not found', isHtml);
-            }
-            break;
+                break;
 
-        default:
-            sendResponse(res, 'Invalid command', isHtml);
-            break;
+            case 'add':
+                try {
+                    if (!data[listName]) data[listName] = {};
+                    data[listName][itemName] = value;
+                    writeDataFile(data, res);
+                    sendResponse(res, `Data added to ${listName}.${itemName}: ${value}`, isHtml);
+                } catch (error) {
+                    console.error('Error in add operation:', error.message);
+                    sendResponse(res, 'Error in add operation', isHtml);
+                }
+                break;
+
+            case 'delete':
+                try {
+                    if (data[listName]) {
+                        if (itemName && data[listName][itemName] !== undefined) {
+                            delete data[listName][itemName];
+                        } else if (!itemName) {
+                            delete data[listName];
+                        } else {
+                            sendResponse(res, 'Item not found', isHtml);
+                            return;
+                        }
+                        writeDataFile(data, res);
+                        sendResponse(res, `Data deleted from ${listName}.${itemName || 'entire list'}`, isHtml);
+                    } else {
+                        sendResponse(res, 'List not found', isHtml);
+                    }
+                } catch (error) {
+                    console.error('Error in delete operation:', error.message);
+                    sendResponse(res, 'Error in delete operation', isHtml);
+                }
+                break;
+
+            default:
+                sendResponse(res, 'Invalid command', isHtml);
+                break;
+        }
+    } catch (error) {
+        console.error('Server error:', error.message);
+        sendResponse(res, 'Server error', false);
     }
 });
 
